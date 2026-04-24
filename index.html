@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function() {
+      const user = localStorage.getItem('cp_user');
+      // If no user, or garbage data, redirect immediately
+      if (!user || user === "null" || user === "undefined" || user === "{}") {
+        window.location.replace('login.html');
+      }
+    })();
+  </script>
+  <style>body { display: none !important; }</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CivicPulse — Community Issue Reporting</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="animated-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <!-- APP LAYOUT -->
+
+  <!-- APP LAYOUT -->
+  <div id="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><path d="M9 3v18"></path><path d="M15 3v18"></path><path d="M3 9h18"></path><path d="M3 15h18"></path></svg>
+        </div>
+        <span>CivicPulse</span>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Main Menu</div>
+        <a class="nav-item active" onclick="showPage('dashboard')" data-page="dashboard">
+          <span class="material-symbols-outlined">dashboard</span> Dashboard
+        </a>
+        <a class="nav-item" onclick="showPage('report')" data-page="report">
+          <span class="material-symbols-outlined">edit_note</span> Report Issue
+        </a>
+        
+        <div class="nav-section-label">Community</div>
+        <a class="nav-item" onclick="showPage('dashboard', 'All')" data-page="dashboard-all">
+          <span class="material-symbols-outlined" style="display: inline-block;">group</span> All Issues
+          <span id="open-count" style="margin-left: auto; background: var(--danger); color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 800;">0</span>
+        </a>
+        
+        <div class="nav-section-label">Account</div>
+        <a class="nav-item" onclick="showPage('profile')" data-page="profile">
+          <span class="material-symbols-outlined">person</span> My Profile
+        </a>
+        <a class="nav-item" onclick="handleLogout()">
+          <span class="material-symbols-outlined">logout</span> Sign Out
+        </a>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="sidebar-user" onclick="showPage('profile')">
+          <div class="user-avatar" id="sidebar-avatar">U</div>
+          <div class="user-info">
+            <div class="user-name" id="sidebar-name">User Name</div>
+            <div class="user-role">Premium Citizen</div>
+          </div>
+          <span class="material-symbols-outlined" style="font-size: 18px; color: var(--text-muted)">settings</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="topbar-btn mobile-menu-btn" onclick="toggleSidebar()">
+          <span class="material-symbols-outlined">menu</span>
+        </button>
+        <h1 id="topbar-title">Dashboard</h1>
+      </div>
+      
+      <div class="search-bar">
+        <span class="material-symbols-outlined search-icon">search</span>
+        <input type="text" placeholder="Search issues, locations..." oninput="handleGlobalSearch(this.value)">
+      </div>
+      
+      <div class="topbar-actions">
+        <button class="topbar-btn">
+          <span class="material-symbols-outlined">notifications</span>
+        </button>
+        <div class="topbar-avatar" id="topbar-avatar">D</div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- GLOBAL ANNOUNCEMENT BAR -->
+      <div id="announcement-bar" style="margin-bottom: 32px; border-radius: 16px; background: linear-gradient(90deg, #1E293B, #334155); color: white; padding: 16px 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: none;">
+        <!-- Dynamic Content -->
+      </div>
+
+      <!-- DASHBOARD PAGE -->
+      <div class="page active" id="page-dashboard">
+        <div id="dashboard-default-header">
+          <div class="page-header">
+            <h2>Community Dashboard</h2>
+            <p>Real-time updates on civic issues and resolutions.</p>
+          </div>
+
+          <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <div class="stat-icon blue">
+                  <span class="material-symbols-outlined">assignment</span>
+                </div>
+                <span class="stat-change up">+12%</span>
+              </div>
+              <div class="stat-value" id="stat-total">0</div>
+              <div class="stat-label">Total Reports</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <div class="stat-icon red">
+                  <span class="material-symbols-outlined">error</span>
+                </div>
+                <span class="stat-change down">-2</span>
+              </div>
+              <div class="stat-value" id="stat-open">0</div>
+              <div class="stat-label">Active Issues</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <div class="stat-icon yellow">
+                  <span class="material-symbols-outlined">build</span>
+                </div>
+                <span class="stat-change up">+5</span>
+              </div>
+              <div class="stat-value" id="stat-progress">0</div>
+              <div class="stat-label">In Progress</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <div class="stat-icon green">
+                  <span class="material-symbols-outlined">check_circle</span>
+                </div>
+                <span class="stat-change up">+8</span>
+              </div>
+              <div class="stat-value" id="stat-resolved-count">0</div>
+              <div class="stat-label">Resolved Case</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="search-results-header" style="display: none; margin-bottom: 40px;">
+          <div class="page-header">
+            <h2>Search Results</h2>
+            <p>Found <span id="search-count" style="font-weight: 800; color: var(--primary);">0</span> matching reports across your community.</p>
+          </div>
+        </div>
+        
+        <!-- TRENDING BANNER (From Image) -->
+        <div class="trending-card">
+          <div class="trending-content">
+            <span class="trending-badge">TRENDING</span>
+            <h3>Emergency Water Main Break — OMR</h3>
+            <p>Starting at 8 AM • Est. 6hrs Repair</p>
+            <button class="trending-btn" onclick="viewIssueDetail(3)">
+              View Details <span class="material-symbols-outlined">arrow_forward</span>
+            </button>
+          </div>
+          <div class="trending-icon-wrap">
+            <span class="material-symbols-outlined trending-icon">auto_awesome</span>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <button class="filter-chip active" onclick="filterIssues('All', this)">All Feeds</button>
+          <button class="filter-chip" onclick="filterIssues('Road', this)">Roads</button>
+          <button class="filter-chip" onclick="filterIssues('Water', this)">Water</button>
+          <button class="filter-chip" onclick="filterIssues('Garbage', this)">Sanitation</button>
+          <button class="filter-chip" onclick="filterIssues('Electricity', this)">Power</button>
+        </div>
+
+        <div class="issues-grid" id="issuesGrid"></div>
+      </div>
+
+      <!-- REPORT PAGE -->
+      <div class="page" id="page-report">
+        <div class="page-header">
+          <h2>Report Issue</h2>
+          <p>Document and submit civic issues in your area.</p>
+        </div>
+        <div class="section-card" style="max-width: 800px;">
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" class="form-input" id="issue-title" placeholder="What's the issue?">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-group">
+              <label>Category</label>
+              <select class="form-select" id="issue-category">
+                <option value="Road">Road / Pothole</option>
+                <option value="Water">Water / Leakage</option>
+                <option value="Garbage">Garbage / Waste</option>
+                <option value="Electricity">Power Issue</option>
+                <option value="Streetlight">Streetlight</option>
+                <option value="Park">Park / Public Space</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Location</label>
+              <input type="text" class="form-input" id="issue-street" placeholder="Street / Area">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea class="form-textarea" id="issue-desc" rows="4" placeholder="Describe the problem details..."></textarea>
+          </div>
+          <button class="btn btn-primary" id="submitBtn" onclick="submitIssue()">Submit Report</button>
+        </div>
+      </div>
+
+      <!-- DETAIL PAGE -->
+      <div class="page" id="page-detail">
+        <div id="detail-content"></div>
+      </div>
+
+      <!-- ADMIN MANAGE PAGE -->
+      <div class="page" id="page-manage">
+        <div class="page-header">
+          <h2>Issue Management Console</h2>
+          <p>Verify reports, assign volunteers, and track neighborhood resolution progress.</p>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="material-symbols-outlined" style="color: var(--primary)">pending_actions</span>
+            <div class="stat-value">12</div>
+            <div class="stat-label">Pending Verification</div>
+          </div>
+          <div class="stat-card">
+            <span class="material-symbols-outlined" style="color: var(--warning)">engineering</span>
+            <div class="stat-value">8</div>
+            <div class="stat-label">Critical Assignments</div>
+          </div>
+        </div>
+        <div id="adminIssuesGrid" class="issues-grid" style="margin-top: 30px;">
+          <!-- Content populated via JS -->
+        </div>
+      </div>
+
+      <!-- ANALYTICS PAGE -->
+      <div class="page" id="page-analytics">
+        <div class="page-header">
+          <h2>City Analytics & Insights</h2>
+          <p>Data-driven overview of metropolitan issues and resolution efficiency.</p>
+        </div>
+        
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Response Time</div>
+            <div class="stat-value">4.2h</div>
+            <div class="stat-change up">Avg. Efficiency</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Resolution Rate</div>
+            <div class="stat-value">88%</div>
+            <div class="stat-change up">+5% this month</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Active Volunteers</div>
+            <div class="stat-value">1,240</div>
+            <div class="stat-change up">+12 today</div>
+          </div>
+        </div>
+
+        <div class="section-card" style="margin-top: 32px;">
+          <div class="section-title">Issue Distribution by Category</div>
+          <div class="health-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+            <div class="health-item">
+              <div class="health-meta"><strong>Roads</strong><span>35%</span></div>
+              <div class="pulse-bar"><div class="pulse-inner pulse-blue" style="width: 35%"></div></div>
+            </div>
+            <div class="health-item">
+              <div class="health-meta"><strong>Sanitation</strong><span>25%</span></div>
+              <div class="pulse-bar"><div class="pulse-inner pulse-blue" style="width: 25%"></div></div>
+            </div>
+            <div class="health-item">
+              <div class="health-meta"><strong>Water</strong><span>20%</span></div>
+              <div class="pulse-bar"><div class="pulse-inner pulse-blue" style="width: 20%"></div></div>
+            </div>
+            <div class="health-item">
+              <div class="health-meta"><strong>Others</strong><span>20%</span></div>
+              <div class="pulse-bar"><div class="pulse-inner pulse-blue" style="width: 20%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUPER ADMIN GLOBAL CONTROL -->
+      <div class="page" id="page-global">
+        <div class="page-header">
+          <div class="government-badge">
+            <span class="material-symbols-outlined">verified_user</span>
+            OFFICIAL EXECUTIVE OVERSIGHT
+          </div>
+          <h2>Global System Control</h2>
+          <p>Strategic oversight of city departments, legislative budgets, and macro civic datasets.</p>
+        </div>
+        
+        <div class="executive-grid">
+          <div class="exec-card primary">
+            <div class="exec-label">Projected Yearly Budget</div>
+            <div class="exec-value">₹4.2 Cr</div>
+            <div class="exec-chart">↑ 14% vs Last Quarter</div>
+          </div>
+          <div class="exec-card">
+            <div class="exec-label">On-Duty Officers</div>
+            <div class="exec-value">254</div>
+            <div class="exec-chart">City-Wide Deployment</div>
+          </div>
+          <div class="exec-card">
+            <div class="exec-label">System Integrity</div>
+            <div class="exec-value">99.9%</div>
+            <div class="exec-chart">Operational Status</div>
+          </div>
+        </div>
+
+        <div class="broadcast-console">
+           <div class="console-header">
+             <span class="material-symbols-outlined">campaign</span>
+             <h3>Emergency Broadcast System</h3>
+           </div>
+           <p>Post a government notice that will override all community feeds instantly.</p>
+           <textarea id="announcement-input" class="form-input console-input" placeholder="Enter executive directive..."></textarea>
+           <div style="display: flex; justify-content: flex-end;">
+             <button class="btn btn-primary exec-btn" onclick="postAnnouncement()">
+               <span class="material-symbols-outlined">send</span> BROADCAST NOTICE
+             </button>
+           </div>
+        </div>
+      </div>
+
+      <!-- SYSTEM HEALTH (IMPLEMENTED) -->
+      <div class="page" id="page-system">
+        <div class="page-header">
+          <h2>Infrastructure Status</h2>
+          <p>Real-time technical heartbeat of the CivicPulse metropolitan network.</p>
+        </div>
+        
+        <div class="health-grid">
+          <div class="health-item">
+            <div class="health-meta">
+              <strong>Database Cluster</strong>
+              <span>Latency: 12ms</span>
+            </div>
+            <div class="pulse-bar"><div class="pulse-inner pulse-green" style="width: 95%"></div></div>
+          </div>
+          <div class="health-item">
+            <div class="health-meta">
+              <strong>Asset Storage</strong>
+              <span>Usage: 4.2 TB / 10 TB</span>
+            </div>
+            <div class="pulse-bar"><div class="pulse-inner pulse-blue" style="width: 42%"></div></div>
+          </div>
+          <div class="health-item">
+            <div class="health-meta">
+              <strong>API Gateway</strong>
+              <span>Threats Blocked: 24 (Today)</span>
+            </div>
+            <div class="pulse-bar"><div class="pulse-inner pulse-green" style="width: 100%"></div></div>
+          </div>
+        </div>
+
+        <div class="system-monitor-card">
+           <div class="monitor-header">
+             <div class="live-blink"></div>
+             <span>LIVE TRAFFIC MONITOR</span>
+           </div>
+           <div class="mock-graph">
+             <svg width="100%" height="80" viewBox="0 0 1000 100" preserveAspectRatio="none">
+               <path d="M0,80 L50,70 L100,85 L150,40 L200,60 L250,20 L300,50 L350,90 L400,30 L450,15 L500,45 L550,75 L600,10 L650,25 L700,55 L750,85 L800,20 L850,40 L900,10 L1000,30" fill="none" stroke="var(--primary)" stroke-width="2">
+                 <animate attributeName="d" from="M0,80 L50,70 L100,85 L150,40 L200,60 L250,20 L300,50 L350,90 L400,30 L450,15 L500,45 L550,75 L600,10 L650,25 L700,55 L750,85 L800,20 L850,40 L900,10 L1000,30" to="M0,70 L50,80 L100,75 L150,50 L200,55 L250,30 L300,60 L350,80 L400,40 L450,25 L500,55 L550,65 L600,20 L650,35 L700,45 L750,75 L800,30 L850,50 L900,20 L1000,40" dur="5s" repeatCount="indefinite" />
+               </path>
+             </svg>
+           </div>
+        </div>
+      </div>
+
+      <!-- USER MANAGEMENT -->
+      <div class="page" id="page-users">
+        <div class="page-header">
+          <h2>Citizen & Staff Management</h2>
+          <p>Monitor user activity, handle reports against users, and verify premium citizens.</p>
+        </div>
+        <div class="card" style="padding: 20px;">
+           <table style="width: 100%; text-align: left; border-collapse: collapse;">
+             <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-light); font-size: 0.8rem;">
+               <th style="padding: 12px;">USER</th>
+               <th style="padding: 12px;">ROLE</th>
+               <th style="padding: 12px;">STATUS</th>
+             </tr>
+             <tr>
+               <td style="padding: 12px;">Deepa R.</td>
+               <td style="padding: 12px;">Citizen</td>
+               <td style="padding: 12px;"><span class="status-badge status-resolved">Active</span></td>
+             </tr>
+             <tr>
+               <td style="padding: 12px;">Inspector Rahul</td>
+               <td style="padding: 12px;">Admin</td>
+               <td style="padding: 12px;"><span class="status-badge status-open">On Duty</span></td>
+             </tr>
+           </table>
+        </div>
+      </div>
+
+      <!-- PROFILE PAGE -->
+      <div class="page" id="page-profile">
+        <div class="page-header">
+          <h2>My Profile</h2>
+          <p>Your activity and contribution status.</p>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-main">
+            <div class="section-card flex items-center gap-3">
+              <div id="profile-avatar-large" class="user-avatar" style="width: 80px; height: 80px; font-size: 32px;">U</div>
+              <div>
+                <h3 id="profile-name-display" style="font-size: 1.5rem; color: white;">User Name</h3>
+                <p id="profile-email-display" style="color: var(--text-muted);">email@example.com</p>
+              </div>
+            </div>
+            <div class="section-card">
+              <div class="section-title">My Reports</div>
+              <div id="my-issues-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div id="toastContainer" class="toast-container"></div>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>

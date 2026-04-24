@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    (function() {
+      const user = localStorage.getItem('cp_user');
+      if (user && user !== "null") {
+        window.location.replace('index.html');
+      }
+    })();
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — CivicPulse</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+</head>
+<body>
+
+  <div class="animated-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <!-- AUTH PAGE -->
+  <div id="auth-page" style="display: flex;">
+    <div class="auth-right">
+      <div class="auth-form-container">
+        <div class="auth-logo">
+          <div class="auth-logo-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><path d="M9 3v18"></path><path d="M15 3v18"></path><path d="M3 9h18"></path><path d="M3 15h18"></path></svg>
+          </div>
+          <span>CivicPulse</span>
+        </div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" onclick="switchAuth('login', this)">Sign In</button>
+          <button class="auth-tab" onclick="switchAuth('register', this)">Register</button>
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-form">
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="login-email" class="form-input" placeholder="demo@civicpulse.com">
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <div style="position: relative;">
+              <input type="password" id="login-pass" class="form-input" placeholder="••••••••">
+              <span class="material-symbols-outlined" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--text-light); cursor: pointer; font-size: 20px;">visibility</span>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="handleLogin(event)">Sign In to Dashboard</button>
+          <!-- Demo Access Removed for security -->
+        </div>
+
+        <!-- Register Form -->
+        <div id="register-form" style="display: none;">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="reg-name" class="form-input" placeholder="Enter your name">
+          </div>
+          <div class="form-group">
+            <label>Email ID</label>
+            <input type="email" id="reg-email" class="form-input" placeholder="you@example.com">
+          </div>
+          <div class="form-group">
+            <label>Create Password</label>
+            <input type="password" id="reg-pass" class="form-input" placeholder="••••••••">
+          </div>
+          <button class="btn btn-primary" onclick="handleRegister(event)">Create Account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
