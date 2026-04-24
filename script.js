@@ -195,6 +195,9 @@ function handleLogin(e) {
   State.currentRole = role;
   saveData();
   
+  // Apply theme immediately
+  document.body.className = 'theme-' + role;
+  
   const btn = e ? e.currentTarget : null;
   if (btn) {
     btn.innerHTML = '<span class="material-symbols-outlined" style="animation: spin 1s linear infinite">sync</span> Signing in...';
@@ -254,6 +257,7 @@ function loginAs(role) {
   };
   State.currentRole = role;
   saveData();
+  document.body.className = 'theme-' + role;
   initApp();
   showToast(`Logged in as ${titles[role]}`, 'success');
 }
@@ -266,6 +270,9 @@ function initApp() {
     window.location.href = 'login.html';
     return;
   }
+
+  // Apply theme class to body
+  document.body.className = 'theme-' + State.currentRole;
 
   // Populate all content BEFORE revealing to avoid any flash
   document.getElementById('sidebar-name').innerText = State.currentUser.name;
