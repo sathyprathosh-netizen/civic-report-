@@ -1,6 +1,13 @@
 // ==================== APP STATE ====================
 const State = {
-  currentUser: null,
+  currentUser: {
+    name: 'Demo User',
+    email: 'demo@civicpulse.com',
+    phone: '+91 98765 43210',
+    city: 'Chennai',
+    address: '123 Civic Street, T. Nagar',
+    volunteeredIssues: []
+  },
   currentRole: 'citizen',
   currentPage: 'dashboard',
   currentFilter: 'All',
@@ -150,6 +157,29 @@ function loadData() {
     State.currentUser = JSON.parse(savedUser);
     State.currentRole = localStorage.getItem('cp_role') || 'citizen';
   }
+
+  // Apply saved theme (Only on dashboard pages, login should always be light)
+  const isLoginPage = window.location.pathname.includes('login.html');
+  const savedTheme = localStorage.getItem('cp_theme');
+  
+  if (savedTheme === 'dark' && !isLoginPage) {
+    document.body.classList.add('dark-mode');
+  } else {
+    document.body.classList.remove('dark-mode');
+  }
+
+  // Set 2FA switch state
+  const twoFactorEnabled = localStorage.getItem('cp_2fa_enabled') === 'true';
+  const twoFactorSwitch = document.getElementById('2fa-switch');
+  if (twoFactorSwitch) twoFactorSwitch.checked = twoFactorEnabled;
+
+  // Set Notification switches
+  const pushEnabled = localStorage.getItem('cp_push_enabled') !== 'false'; // default true
+  const emailEnabled = localStorage.getItem('cp_email_enabled') === 'true';
+  const pushSwitch = document.getElementById('push-notif-switch');
+  const emailSwitch = document.getElementById('email-digest-switch');
+  if (pushSwitch) pushSwitch.checked = pushEnabled;
+  if (emailSwitch) emailSwitch.checked = emailEnabled;
 }
 
 // ==================== AUTH ====================
@@ -181,7 +211,7 @@ function handleLogin(e) {
   if (!email || !pass) return showToast('Please enter credentials', 'error');
 
   let role = 'citizen';
-  let name = 'Demo User';
+  let name = email.split('@')[0].split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
   
   if (email === 'superadmin@civicpulse.gov' || email.includes('super')) {
     role = 'super';
@@ -204,10 +234,62 @@ function handleLogin(e) {
     btn.disabled = true;
   }
 
-  showToast(`Welcome back, ${name}!`, 'success');
-  setTimeout(() => {
-    window.location.href = 'index.html';
-  }, 600);
+  showToast(`Credentials verified!`, 'success');
+
+  // Check if 2FA is enabled
+  if (localStorage.getItem('cp_2fa_enabled') === 'true') {
+    setTimeout(() => {
+      showModal({
+        title: 'Two-Factor Authentication',
+        body: `
+          <div style="text-align: center; padding: 10px 0;">
+            <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 24px;">
+              Enter the 6-digit code from your authenticator app to complete sign-in.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center;" id="otp-container">
+              <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+              <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+              <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+              <span style="display: flex; align-items: center;">-</span>
+              <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+              <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+              <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+            </div>
+          </div>
+        `,
+        actionText: 'Verify & Sign In',
+        onAction: () => {
+          const inputs = document.querySelectorAll('.otp-input');
+          let code = '';
+          inputs.forEach(i => code += i.value);
+          if (code.length < 6) {
+            showToast('Enter all 6 digits', 'error');
+            return false;
+          }
+          showToast('Verification successful!', 'success');
+          setTimeout(() => { window.location.href = 'index.html'; }, 800);
+          return true;
+        }
+      });
+
+      // Auto-tabbing
+      const inputs = document.querySelectorAll('.otp-input');
+      inputs.forEach((input, index) => {
+        input.addEventListener('keyup', (e) => {
+          if (e.key >= 0 && e.key <= 9) {
+            if (index < inputs.length - 1) inputs[index + 1].focus();
+          } else if (e.key === 'Backspace') {
+            if (index > 0) inputs[index - 1].focus();
+          }
+        });
+      });
+      inputs[0].focus();
+    }, 600);
+  } else {
+    setTimeout(() => {
+      window.location.href = 'index.html';
+    }, 1000);
+  }
 }
 
 function handleRegister(e) {
@@ -228,6 +310,10 @@ function handleRegister(e) {
     State.currentUser = {
       name: fname,
       email,
+      phone: '',
+      city: 'Chennai',
+      address: '',
+      volunteeredIssues: []
     };
     State.currentRole = 'citizen';
     saveData();
@@ -254,6 +340,10 @@ function loginAs(role) {
   State.currentUser = {
     name: titles[role],
     email: emails[role],
+    phone: role === 'citizen' ? '+91 98765 43210' : '',
+    city: 'Chennai',
+    address: role === 'citizen' ? '123 Civic Street, T. Nagar' : '',
+    volunteeredIssues: State.currentUser?.volunteeredIssues || []
   };
   State.currentRole = role;
   saveData();
@@ -282,9 +372,8 @@ function initApp() {
   renderSidebar();
   updateUserUI();
   renderAnnouncements();
+  updateHeroBanner();
   renderIssueCards();
-  if (State.currentRole === 'admin') renderIssueCards('', 'adminIssuesGrid');
-  showPage('dashboard');
 
   // Show the body and fade in the app
   document.body.style.setProperty('display', 'block', 'important');
@@ -392,6 +481,9 @@ function renderSidebar() {
     <a class="nav-item" onclick="showPage('profile')" data-page="profile">
       <span class="material-symbols-outlined">person</span> My Profile
     </a>
+    <a class="nav-item" onclick="showPage('settings')" data-page="settings">
+      <span class="material-symbols-outlined">settings</span> Settings
+    </a>
     <a class="nav-item" onclick="handleLogout()">
       <span class="material-symbols-outlined">logout</span> Sign Out
     </a>
@@ -410,47 +502,53 @@ function updateUserUI() {
     document.getElementById('profile-avatar-large').innerText = av;
     document.getElementById('profile-name-display').innerText = State.currentUser.name;
     document.getElementById('profile-email-display').innerText = State.currentUser.email;
+
+    // Populate editable fields
+    document.getElementById('edit-profile-name').value = State.currentUser.name;
+    document.getElementById('edit-profile-email').value = State.currentUser.email;
+    document.getElementById('edit-profile-phone').value = State.currentUser.phone || '';
+    document.getElementById('edit-profile-city').value = State.currentUser.city || '';
+    document.getElementById('edit-profile-address').value = State.currentUser.address || '';
   }
 }
 
 function showPage(page, filter, preventScroll = false) {
-  // Auto-close sidebar on mobile after selection
   const sidebar = document.getElementById('sidebar');
-  if (sidebar && sidebar.classList.contains('open')) {
-    sidebar.classList.remove('open');
-  }
+  if (sidebar && sidebar.classList.contains('open')) sidebar.classList.remove('open');
 
   const targetPage = document.getElementById('page-' + page);
-  const isAlreadyActive = targetPage && targetPage.classList.contains('active');
+  if (!targetPage) return;
 
-  if (!isAlreadyActive) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    if (targetPage) targetPage.classList.add('active');
-  }
+  // Always set active class to be safe
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  targetPage.classList.add('active');
 
+  // Nav highlighting
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
-  // Handle various nav highlight keys
   let navKey = page;
   if (page === 'dashboard' && filter === 'All') navKey = 'dashboard-all';
-  
   const navItem = document.querySelector(`[data-page="${navKey}"]`);
   if (navItem) navItem.classList.add('active');
 
   State.currentPage = page;
   
-  const titles = { dashboard: 'Dashboard', report: 'Report Issue', profile: 'My Profile', analytics: 'City Analytics' };
+  const titles = { dashboard: 'Dashboard', report: 'Report Issue', profile: 'My Profile', settings: 'Settings', analytics: 'City Analytics' };
   const titleEl = document.getElementById('topbar-title');
   if (titleEl) titleEl.innerText = titles[page] || 'CivicPulse';
 
   if (page === 'dashboard') {
+    // Force a fresh render of everything on the dashboard
     renderDashboard();
-    if (filter) filterIssues(filter);
+    if (filter) {
+      // Find the corresponding filter button if it exists to keep UI in sync
+      const filterBtn = Array.from(document.querySelectorAll('.filter-chip')).find(b => b.innerText.includes(filter) || (filter === 'All' && b.innerText.includes('All')));
+      filterIssues(filter, filterBtn);
+    }
   } else if (page === 'profile') {
     renderProfile();
   }
 
-  if (!preventScroll && !isAlreadyActive) {
+  if (!preventScroll) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
@@ -462,6 +560,7 @@ function toggleSidebar() {
 // ==================== DASHBOARD & ISSUES ====================
 function renderDashboard() {
   updateStats();
+  updateHeroBanner();
   renderIssueCards();
 }
 
@@ -565,7 +664,7 @@ function renderIssueCards(searchQ = '', containerId = 'issuesGrid') {
             <span class="material-symbols-outlined">visibility</span> Details
           </button>
           <button class="btn btn-primary btn-sm" onclick="viewIssueDetail(${issue.id})">
-            <span class="material-symbols-outlined">handshake</span> Help Resolve
+            <span class="material-symbols-outlined">check_circle</span> Try to Resolve
           </button>
         </div>
       </div>
@@ -580,18 +679,26 @@ function viewIssueDetail(id) {
   if (!issue) return;
 
   const content = document.getElementById('detail-content');
-  const statusSteps = ['Open', 'In Progress', 'Resolved'];
+  const statusSteps = ['Open', 'In Progress', 'Awaiting Approval', 'Resolved'];
   const currentStep = statusSteps.indexOf(issue.status);
 
   let trackHTML = statusSteps.map((s, i) => {
-    const cls = i < currentStep ? 'done' : i === currentStep ? 'active' : '';
-    const icon = i < currentStep ? 'check' : i === currentStep ? 'build' : 'pending';
+    const isDone = i < currentStep || (issue.status === 'Resolved' && i === currentStep);
+    const isActive = i === currentStep && issue.status !== 'Resolved';
+    
+    const cls = isDone ? 'done' : isActive ? 'active' : '';
+    const icon = isDone ? 'check' : isActive ? 'sync' : 'circle';
+    
+    // Friendly labels for the tracker
+    let displayLabel = s;
+    if (s === 'Awaiting Approval') displayLabel = 'Verifying';
+    
     return `
       <div class="status-step ${cls}">
         <div class="status-step-dot">
           <span class="material-symbols-outlined" style="font-size: 16px">${icon}</span>
         </div>
-        <div class="status-step-label">${s}</div>
+        <div class="status-step-label">${displayLabel}</div>
       </div>
     `;
   }).join('');
@@ -611,39 +718,54 @@ function viewIssueDetail(id) {
         <div class="section-card">
           <div class="section-title"><span class="material-symbols-outlined">analytics</span> Resolution Status</div>
           <div class="status-track">${trackHTML}</div>
-          <div style="display: flex; gap: 16px; margin-top: 40px">
-            <button class="btn btn-outline" style="flex: 1" onclick="updateIssueStatus(${issue.id}, 'In Progress')">Mark In Progress</button>
-            <button class="btn btn-primary" style="flex: 1" onclick="updateIssueStatus(${issue.id}, 'Resolved')">Resolve Issue</button>
-          </div>
-        </div>
-      `;
+          
+          ${issue.resolvedImage ? `
+            <div class="resolution-proof-container">
+              <div style="font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                <span class="material-symbols-outlined" style="color: var(--success)">image</span>
+                Resolution Proof Submitted
+              </div>
+              <img src="${issue.resolvedImage}" class="resolution-proof-img">
+              ${issue.status === 'Resolved' ? 
+                `<p style="margin-top: 12px; color: var(--success); font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                  <span class="material-symbols-outlined">verified</span> Verified & Resolved by Author
+                </p>` : ''
+              }
+            </div>
+          ` : ''}
 
-  // Admin-Specific Actions
-  if (State.currentRole === 'admin' || State.currentRole === 'super') {
-    if (issue.status !== 'Resolved') {
-      html += `
-        <div class="detail-actions" style="margin-top: 32px; padding-top: 32px; border-top: 1px dashed var(--border-color);">
-          <h4 style="margin-bottom: 16px;">Administrative Control</h4>
-          <div style="display: flex; gap: 12px;">
-            <button class="btn btn-primary" onclick="adminResolveIssue(${issue.id})" style="background: var(--success); border: none;">
-              <span class="material-symbols-outlined">check_circle</span> Resolve & Upload Proof
-            </button>
-            <button class="btn btn-secondary" onclick="updateIssueStatus(${issue.id}, 'In Progress')">
-              <span class="material-symbols-outlined">pending</span> Mark In Progress
-            </button>
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 32px; width: 100%;">
+            ${issue.status === 'Resolved' ? 
+              `<button class="btn btn-outline" style="width: 100%" disabled><span class="material-symbols-outlined" style="color: var(--success); margin-right: 8px;">verified</span> Problem Resolved & Verified</button>` :
+              issue.status === 'Awaiting Approval' && issue.author === State.currentUser.name ?
+              `<div style="display: flex; gap: 12px; width: 100%;">
+                 <button class="btn btn-primary" style="flex: 1" onclick="approveResolution(${issue.id})">
+                  <span class="material-symbols-outlined" style="margin-right: 8px;">check_circle</span> Verify & Mark Resolved
+                 </button>
+                 <button class="btn btn-outline" style="flex: 1; border-color: var(--danger); color: var(--danger);" onclick="rejectResolution(${issue.id})">
+                  <span class="material-symbols-outlined" style="margin-right: 8px;">cancel</span> Reject Proof
+                 </button>
+               </div>` :
+              issue.status === 'Awaiting Approval' ?
+              `<button class="btn btn-outline" style="width: 100%" disabled><span class="material-symbols-outlined" style="margin-right: 8px;">hourglass_empty</span> Awaiting Author Verification</button>` :
+              issue.author === State.currentUser.name ?
+              `<div class="section-card" style="margin: 0; background: var(--bg-tertiary); text-align: center; border: 1px dashed var(--border-color);">
+                <p style="color: var(--text-muted); font-size: 0.9rem; font-weight: 600;">
+                  <span class="material-symbols-outlined" style="vertical-align: middle; margin-right: 4px;">info</span>
+                  Waiting for community members to resolve this issue.
+                </p>
+              </div>` :
+              `<button class="btn btn-primary" style="width: 100%; height: 54px; font-size: 1.1rem;" onclick="submitResolution(${issue.id})">
+                <span class="material-symbols-outlined" style="margin-right: 12px; font-size: 24px;">task_alt</span> Try to Resolve (Attach Proof)
+               </button>
+               <button class="btn btn-outline" style="width: 100%" onclick="helpIssue(${issue.id})">
+                <span class="material-symbols-outlined" style="margin-right: 8px;">volunteer_activism</span> 
+                ${(State.currentUser.volunteeredIssues || []).includes(issue.id) ? 'Stop Volunteering' : 'Volunteer to Help'}
+               </button>`
+            }
           </div>
         </div>
       `;
-    } else if (issue.resolvedImage) {
-      html += `
-        <div class="detail-section" style="margin-top: 32px;">
-          <h4><span class="material-symbols-outlined">verified</span> Resolution Proof</h4>
-          <img src="${issue.resolvedImage}" style="width: 100%; border-radius: 16px; margin-top: 12px; border: 2px solid var(--success);">
-          <p style="margin-top: 8px; font-weight: 600; color: var(--success);">Verified by Admin</p>
-        </div>
-      `;
-    }
-  }
 
   html += `
       </div>
@@ -688,48 +810,159 @@ function viewIssueDetail(id) {
   }
 }
 
-function adminResolveIssue(id) {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (re) => {
+function submitResolution(id) {
+  showModal({
+    title: 'Resolve this Issue',
+    body: `
+      <div style="text-align: center; padding: 20px 0;">
+        <div class="user-avatar" style="width: 80px; height: 80px; margin: 0 auto 24px; background: var(--success-dim); color: var(--success);">
+          <span class="material-symbols-outlined" style="font-size: 40px;">camera_enhance</span>
+        </div>
+        <h4 style="margin-bottom: 12px; font-size: 1.1rem;">Take a Proof Photo</h4>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; line-height: 1.6;">
+          To resolve this issue, you must provide a clear photo as evidence that the problem has been rectified.
+        </p>
+        
+        <div id="proof-dropzone" style="border: 2px dashed var(--border-color); padding: 40px; border-radius: 16px; cursor: pointer; transition: all 0.3s;" onclick="document.getElementById('modal-proof-upload').click()">
+          <span class="material-symbols-outlined" style="font-size: 32px; color: var(--text-light);">cloud_upload</span>
+          <p style="margin-top: 12px; font-weight: 600; color: var(--text-muted);">Click to attach proof photo</p>
+          <input type="file" id="modal-proof-upload" style="display: none;" onchange="handleModalProof(this)">
+        </div>
+        <div id="modal-proof-preview" style="display: none; margin-top: 20px;">
+           <img id="proof-img-tag">
+           <button class="btn btn-outline btn-sm" style="margin-top: 12px;" onclick="resetModalProof()">Remove Photo</button>
+        </div>
+      </div>
+    `,
+    actionText: 'Submit for Verification',
+    onAction: () => {
+      const img = document.getElementById('proof-img-tag').src;
+      if (!img || img.includes('undefined')) {
+        showToast('Please attach a proof photo first', 'error');
+        return false;
+      }
+      
       const issue = State.issues.find(i => i.id === id);
       if (issue) {
-        issue.status = 'Resolved';
-        issue.resolvedImage = re.target.result;
+        issue.status = 'Awaiting Approval';
+        issue.resolvedImage = img;
+        issue.resolverName = State.currentUser.name;
         saveData();
         viewIssueDetail(id);
-        showToast('Issue resolved with proof correctly!', 'success');
+        showToast('Resolution submitted! Awaiting author verification.', 'success');
+        return true;
       }
+      return false;
+    }
+  });
+}
+
+function handleModalProof(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      document.getElementById('proof-img-tag').src = e.target.result;
+      document.getElementById('proof-dropzone').style.display = 'none';
+      document.getElementById('modal-proof-preview').style.display = 'block';
     };
-    reader.readAsDataURL(file);
-  };
-  input.click();
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function resetModalProof() {
+  document.getElementById('proof-img-tag').src = '';
+  document.getElementById('proof-dropzone').style.display = 'block';
+  document.getElementById('modal-proof-preview').style.display = 'none';
+}
+
+function requestResolution(id) {
+  const issue = State.issues.find(i => i.id === id);
+  if (issue) {
+    issue.status = 'Awaiting Approval';
+    saveData();
+    viewIssueDetail(id);
+    showToast('Resolution requested. Awaiting author approval.', 'success');
+  }
+}
+
+function approveResolution(id) {
+  const issue = State.issues.find(i => i.id === id);
+  if (!issue) return;
+  
+  if (issue.author !== State.currentUser.name) {
+    showToast('Only the issue author can mark this as resolved.', 'error');
+    return;
+  }
+
+  issue.status = 'Resolved';
+  saveData();
+  viewIssueDetail(id);
+  showToast('Issue officially resolved and closed!', 'success');
+}
+
+function rejectResolution(id) {
+  const issue = State.issues.find(i => i.id === id);
+  if (!issue) return;
+  
+  if (issue.author !== State.currentUser.name) return;
+
+  issue.status = 'In Progress';
+  issue.resolvedImage = null; // Clear the rejected proof
+  saveData();
+  viewIssueDetail(id);
+  showToast('Resolution proof rejected. Issue remains In Progress.', 'warning');
 }
 
 function updateIssueStatus(id, status) {
   const issue = State.issues.find(i => i.id === id);
-  if (issue) {
-    issue.status = status;
-    saveData();
-    viewIssueDetail(id);
-    showToast(`Status updated to ${status}`, 'success');
+  if (!issue) return;
+
+  const isAuthor = issue.author === State.currentUser.name;
+  const isAdmin = State.currentRole === 'admin' || State.currentRole === 'super';
+
+  if (!isAuthor && !isAdmin) {
+    showToast('You do not have permission to update this issue.', 'error');
+    return;
   }
+
+  if (status === 'Resolved' && !isAuthor) {
+    showToast('Only the author can mark this as resolved.', 'error');
+    return;
+  }
+
+  issue.status = status;
+  saveData();
+  viewIssueDetail(id);
+  showToast(`Status updated to ${status}`, 'success');
 }
 
 function helpIssue(id) {
   const issue = State.issues.find(i => i.id === id);
-  if (issue) {
+  if (!issue) return;
+
+  if (!State.currentUser.volunteeredIssues) State.currentUser.volunteeredIssues = [];
+  
+  if (State.currentUser.volunteeredIssues.includes(id)) {
+    // Toggle off
+    issue.helpers = Math.max(0, (issue.helpers || 0) - 1);
+    State.currentUser.volunteeredIssues = State.currentUser.volunteeredIssues.filter(i => i !== id);
+    showToast('You are no longer volunteering for this.', 'info');
+  } else {
+    // Toggle on
     issue.helpers = (issue.helpers || 0) + 1;
-    saveData();
-    showToast('Thank you for volunteering!', 'success');
-    viewIssueDetail(id);
+    State.currentUser.volunteeredIssues.push(id);
+    
+    // Automatically set status to In Progress
+    if (issue.status === 'Open') {
+      issue.status = 'In Progress';
+    }
+    
+    showToast('Thank you for volunteering! Issue is now In Progress.', 'success');
   }
+  
+  saveData();
+  updateHeroBanner();
+  viewIssueDetail(id);
 }
 
 // ==================== REPORT ISSUE ====================
@@ -781,6 +1014,7 @@ function submitIssue() {
     
     State.issues.unshift(newIssue);
     saveData();
+    updateHeroBanner();
     showToast('Issue reported successfully!', 'success');
     showPage('dashboard');
     btn.innerText = 'Submit Report';
@@ -802,17 +1036,376 @@ function renderProfile() {
     return;
   }
 
-  list.innerHTML = myIssues.map(issue => `
-    <div class="sidebar-user" style="background: rgba(255,255,255,0.02); margin-bottom: 12px; cursor: default">
-      <div class="user-avatar" style="background: var(--navy-lighter)">
-        <span class="material-symbols-outlined">${issue.icon || 'push_pin'}</span>
+  list.innerHTML = myIssues.map(issue => {
+    const statusClass = issue.status.toLowerCase().replace(' ', '');
+    return `
+      <div class="issue-card" onclick="viewIssueDetail(${issue.id})" style="cursor: pointer;">
+        <div class="issue-card-img" style="height: 120px;">
+          <span class="material-symbols-outlined" style="font-size: 40px;">${issue.icon || 'push_pin'}</span>
+          <div class="status-label-badge ${statusClass}">${issue.status}</div>
+        </div>
+        <div class="issue-card-body" style="padding: 16px;">
+          <div class="issue-card-title" style="font-size: 1rem;">${issue.title}</div>
+          <div class="issue-card-meta">
+            <span><span class="material-symbols-outlined">schedule</span> ${issue.date}</span>
+          </div>
+        </div>
       </div>
-      <div class="user-info">
-        <div class="user-name">${issue.title}</div>
-        <div class="user-role">${issue.status} • ${issue.date}</div>
+    `;
+  }).join('');
+}
+
+function toggleNotifications() {
+  const dropdown = document.getElementById('notif-dropdown');
+  const isOpening = dropdown.style.display !== 'block';
+  
+  // Close if open
+  if (!isOpening) {
+    dropdown.style.display = 'none';
+    return;
+  }
+
+  // Populate and show
+  renderNotifications();
+  dropdown.style.display = 'block';
+  document.getElementById('notif-dot').style.display = 'none';
+  
+  // Close when clicking outside
+  const closeHandler = (e) => {
+    if (!dropdown.contains(e.target) && !e.target.closest('.topbar-btn')) {
+      dropdown.style.display = 'none';
+      document.removeEventListener('click', closeHandler);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', closeHandler), 10);
+}
+
+function renderNotifications() {
+  const list = document.getElementById('notif-list');
+  const emailEnabled = localStorage.getItem('cp_email_enabled') === 'true';
+  
+  // Mock notifications based on actual issues
+  const notifications = [
+    { 
+      id: 1, 
+      title: 'Resolution Proof Submitted', 
+      desc: 'A photo has been uploaded for your Road repair request.', 
+      time: 'Just now', 
+      icon: 'image', 
+      type: 'success' 
+    }
+  ];
+
+  if (emailEnabled) {
+    notifications.push({
+      id: 99,
+      title: 'Weekly Community Digest',
+      desc: '12 issues resolved this week! See the progress in your district.',
+      time: 'Today',
+      icon: 'summarize',
+      type: 'primary'
+    });
+  }
+
+  notifications.push(
+    { 
+      id: 2, 
+      title: 'New Volunteer', 
+      desc: 'Someone joined to help with the Garbage issue.', 
+      time: '10 mins ago', 
+      icon: 'volunteer_activism', 
+      type: 'info' 
+    },
+    { 
+      id: 3, 
+      title: 'Global Announcement', 
+      desc: 'New executive order issued by City Hall.', 
+      time: '1 hour ago', 
+      icon: 'campaign', 
+      type: 'warning' 
+    }
+  );
+
+  list.innerHTML = notifications.map(n => `
+    <div class="notif-item">
+      <div class="notif-icon ${n.type || 'info'}">
+        <span class="material-symbols-outlined" style="font-size: 18px;">${n.icon}</span>
+      </div>
+      <div class="notif-content">
+        <div class="notif-title">${n.title}</div>
+        <div class="notif-desc">${n.desc}</div>
+        <div class="notif-time">${n.time}</div>
       </div>
     </div>
   `).join('');
+}
+
+function clearNotifications() {
+  document.getElementById('notif-list').innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-light); font-size: 0.9rem;">No new notifications</div>';
+}
+
+function showNotifications() {
+  toggleNotifications();
+}
+
+function openSettings() {
+  showPage('settings');
+  updateSettingsUI();
+}
+
+function updateSettingsUI() {
+  const isDark = document.body.classList.contains('dark-mode');
+  const lightBtn = document.getElementById('theme-light-btn');
+  const darkBtn = document.getElementById('theme-dark-btn');
+  
+  if (lightBtn && darkBtn) {
+    lightBtn.className = isDark ? 'btn btn-outline btn-sm' : 'btn btn-primary btn-sm';
+    darkBtn.className = isDark ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+  }
+}
+
+function setTheme(mode) {
+  if (mode === 'dark') {
+    document.body.classList.add('dark-mode');
+    localStorage.setItem('cp_theme', 'dark');
+  } else {
+    document.body.classList.remove('dark-mode');
+    localStorage.setItem('cp_theme', 'light');
+  }
+  updateSettingsUI();
+  showToast(`Switched to ${mode} mode`, 'info');
+}
+
+function changePassword() {
+  showModal({
+    title: 'Change Password',
+    body: `
+      <div class="form-group">
+        <label>Current Password</label>
+        <input type="password" class="form-input" id="modal-old-pass" placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label>New Password</label>
+        <input type="password" class="form-input" id="modal-new-pass" placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label>Confirm New Password</label>
+        <input type="password" class="form-input" id="modal-confirm-pass" placeholder="••••••••">
+      </div>
+    `,
+    actionText: 'Update Password',
+    onAction: () => {
+      const newP = document.getElementById('modal-new-pass').value;
+      const confP = document.getElementById('modal-confirm-pass').value;
+      if (!newP || newP !== confP) {
+        showToast('Passwords do not match!', 'error');
+        return false;
+      }
+      showToast('Password updated successfully!', 'success');
+      return true; // closes modal
+    }
+  });
+}
+
+function deactivateAccount() {
+  showModal({
+    title: 'Deactivate Account',
+    body: `
+      <p style="color: var(--text-muted); line-height: 1.6;">
+        Are you sure you want to deactivate your account? This will permanently disable your access to CivicPulse.
+      </p>
+      <div style="margin-top: 20px; padding: 16px; background: var(--danger-dim); border-radius: 12px; color: var(--danger); font-size: 0.85rem; font-weight: 600;">
+        Warning: This action cannot be undone.
+      </div>
+    `,
+    actionText: 'Deactivate Permanently',
+    actionClass: 'btn-primary',
+    onAction: () => {
+      showToast('Account deactivated.', 'error');
+      setTimeout(() => handleLogout(), 1500);
+      return true;
+    }
+  });
+}
+
+function toggle2FA(enabled) {
+  const switchEl = document.getElementById('2fa-switch');
+  
+  if (enabled) {
+    showModal({
+      title: 'Enable Two-Factor Authentication',
+      body: `
+        <div style="text-align: center; padding: 10px 0;">
+          <div class="user-avatar" style="width: 80px; height: 80px; margin: 0 auto 24px; background: var(--primary-dim); color: var(--primary);">
+            <span class="material-symbols-outlined" style="font-size: 40px;">vibration</span>
+          </div>
+          <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 24px;">
+            Enter the 6-digit code from your authenticator app to link your account.
+          </p>
+          <div style="display: flex; gap: 10px; justify-content: center;" id="otp-container">
+            <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+            <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+            <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+            <span style="display: flex; align-items: center;">-</span>
+            <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+            <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+            <input type="text" maxlength="1" class="form-input otp-input" style="width: 45px; text-align: center; font-size: 1.25rem; font-weight: 700;">
+          </div>
+        </div>
+      `,
+      actionText: 'Activate 2FA',
+      onAction: () => {
+        const inputs = document.querySelectorAll('.otp-input');
+        let code = '';
+        inputs.forEach(i => code += i.value);
+        
+        if (code.length < 6) {
+          showToast('Please enter all 6 digits', 'error');
+          return false;
+        }
+        
+        showToast('Two-Factor Authentication enabled!', 'success');
+        localStorage.setItem('cp_2fa_enabled', 'true');
+        return true;
+      }
+    });
+
+    // Auto-tabbing logic
+    setTimeout(() => {
+      const inputs = document.querySelectorAll('.otp-input');
+      inputs.forEach((input, index) => {
+        input.addEventListener('keyup', (e) => {
+          if (e.key >= 0 && e.key <= 9) {
+            if (index < inputs.length - 1) inputs[index + 1].focus();
+          } else if (e.key === 'Backspace') {
+            if (index > 0) inputs[index - 1].focus();
+          }
+        });
+      });
+      inputs[0].focus();
+    }, 100);
+
+  } else {
+    showToast('2FA disabled.', 'info');
+    localStorage.removeItem('cp_2fa_enabled');
+  }
+}
+
+function closeModal() {
+  const modal = document.getElementById('customModal');
+  const modalTitle = document.getElementById('modalTitle');
+  
+  // If we close the 2FA modal without activating, turn off the switch
+  if (modalTitle.innerText.includes('Two-Factor Authentication')) {
+    const inputs = document.querySelectorAll('.otp-input');
+    let code = '';
+    inputs.forEach(i => code += i.value);
+    
+    // Check if it's currently enabled (via the switch) but not verified
+    const switchEl = document.getElementById('2fa-switch');
+    if (switchEl && code.length < 6) {
+      switchEl.checked = false;
+    }
+  }
+  
+  modal.style.display = 'none';
+}
+
+function updateHeroBanner() {
+  const banner = document.getElementById('hero-banner');
+  if (!banner) return;
+
+  // Find the issue with the most helpers
+  let trendingIssue = [...State.issues].sort((a, b) => (b.helpers || 0) - (a.helpers || 0))[0];
+
+  if (trendingIssue && trendingIssue.status !== 'Resolved') {
+    banner.innerHTML = `
+      <div class="trending-card">
+        <div class="trending-content">
+          <span class="trending-badge">TRENDING</span>
+          <h3>${trendingIssue.title} — ${trendingIssue.location}</h3>
+          <p>Reported by ${trendingIssue.author} • ${trendingIssue.helpers || 0} Citizens Volunteered</p>
+          <button class="trending-btn" onclick="viewIssueDetail(${trendingIssue.id})">
+            View Details <span class="material-symbols-outlined">arrow_forward</span>
+          </button>
+        </div>
+        <div class="trending-icon-wrap">
+          <span class="material-symbols-outlined trending-icon">auto_awesome</span>
+        </div>
+      </div>
+    `;
+  } else {
+    // Default Fallback
+    banner.innerHTML = `
+      <div class="trending-card">
+        <div class="trending-content">
+          <span class="trending-badge">URGENT</span>
+          <h3>Infrastructure Survey — City Center</h3>
+          <p>Community-wide check of civic utility health is ongoing.</p>
+          <button class="trending-btn" onclick="showPage('dashboard', 'All')">
+            Explore All <span class="material-symbols-outlined">explore</span>
+          </button>
+        </div>
+        <div class="trending-icon-wrap">
+          <span class="material-symbols-outlined trending-icon">campaign</span>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function toggleSetting(key, enabled) {
+  localStorage.setItem(`cp_${key}_enabled`, enabled);
+  if (enabled) {
+    showToast(`${key.charAt(0).toUpperCase() + key.slice(1)} alerts enabled!`, 'success');
+  } else {
+    showToast(`${key.charAt(0).toUpperCase() + key.slice(1)} alerts disabled.`, 'info');
+  }
+}
+
+function showModal({ title, body, actionText, onAction, actionClass = 'btn-primary' }) {
+  const modal = document.getElementById('customModal');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalBody = document.getElementById('modalBody');
+  const actionBtn = document.getElementById('modalActionBtn');
+
+  modalTitle.innerText = title;
+  modalBody.innerHTML = body;
+  actionBtn.innerText = actionText;
+  actionBtn.className = `btn ${actionClass}`;
+
+  actionBtn.onclick = () => {
+    if (onAction()) closeModal();
+  };
+
+  modal.style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('customModal').style.display = 'none';
+}
+
+function updateProfile() {
+  const name = document.getElementById('edit-profile-name').value.trim();
+  const email = document.getElementById('edit-profile-email').value.trim();
+  const phone = document.getElementById('edit-profile-phone').value.trim();
+  const city = document.getElementById('edit-profile-city').value.trim();
+  const address = document.getElementById('edit-profile-address').value.trim();
+
+  if (!name || !email) {
+    showToast('Name and Email are required', 'error');
+    return;
+  }
+
+  State.currentUser.name = name;
+  State.currentUser.email = email;
+  State.currentUser.phone = phone;
+  State.currentUser.city = city;
+  State.currentUser.address = address;
+
+  saveData();
+  initApp(); // Re-initialize UI with new data
+  showToast('Profile updated successfully!', 'success');
 }
 
 // ==================== TOAST ====================
@@ -845,7 +1438,7 @@ window.filterIssues = filterIssues;
 window.handleGlobalSearch = handleGlobalSearch;
 window.viewIssueDetail = viewIssueDetail;
 window.updateIssueStatus = updateIssueStatus;
-window.adminResolveIssue = adminResolveIssue;
+window.submitResolution = submitResolution;
 window.postAnnouncement = postAnnouncement;
 window.closeAnnouncements = closeAnnouncements;
 window.helpIssue = helpIssue;
@@ -855,3 +1448,17 @@ window.handleImageUpload = handleImageUpload;
 window.togglePass = togglePass;
 window.switchAuth = switchAuthTab;
 window.switchAuthTab = switchAuthTab;
+window.showNotifications = showNotifications;
+window.toggleNotifications = toggleNotifications;
+window.clearNotifications = clearNotifications;
+window.openSettings = openSettings;
+window.updateProfile = updateProfile;
+window.setTheme = setTheme;
+window.changePassword = changePassword;
+window.toggleBiometric = toggleBiometric;
+window.deactivateAccount = deactivateAccount;
+window.showModal = showModal;
+window.closeModal = closeModal;
+window.requestResolution = requestResolution;
+window.approveResolution = approveResolution;
+window.rejectResolution = rejectResolution;

@@ -64,19 +64,24 @@
         <a class="nav-item" onclick="showPage('profile')" data-page="profile">
           <span class="material-symbols-outlined">person</span> My Profile
         </a>
+        <a class="nav-item" onclick="showPage('settings')" data-page="settings">
+          <span class="material-symbols-outlined">settings</span> Settings
+        </a>
         <a class="nav-item" onclick="handleLogout()">
           <span class="material-symbols-outlined">logout</span> Sign Out
         </a>
       </nav>
 
       <div class="sidebar-bottom">
-        <div class="sidebar-user" onclick="showPage('profile')">
-          <div class="user-avatar" id="sidebar-avatar">U</div>
-          <div class="user-info">
-            <div class="user-name" id="sidebar-name">User Name</div>
-            <div class="user-role">Premium Citizen</div>
+        <div class="sidebar-user">
+          <div class="sidebar-user-clickable" onclick="showPage('profile')" style="display: flex; align-items: center; gap: 12px; flex: 1; cursor: pointer;">
+            <div class="user-avatar" id="sidebar-avatar">U</div>
+            <div class="user-info">
+              <div class="user-name" id="sidebar-name">User Name</div>
+              <div class="user-role">Premium Citizen</div>
+            </div>
           </div>
-          <span class="material-symbols-outlined" style="font-size: 18px; color: var(--text-muted)">settings</span>
+          <span class="material-symbols-outlined settings-icon-btn" onclick="openSettings()" style="font-size: 20px; color: var(--text-muted); cursor: pointer; padding: 8px; border-radius: 50%; transition: background 0.3s;">settings</span>
         </div>
       </div>
     </aside>
@@ -92,14 +97,26 @@
       
       <div class="search-bar">
         <span class="material-symbols-outlined search-icon">search</span>
-        <input type="text" placeholder="Search issues, locations..." oninput="handleGlobalSearch(this.value)">
+        <input type="text" placeholder="Search issues, locations..." oninput="handleGlobalSearch(this.value)" autocomplete="off">
       </div>
       
       <div class="topbar-actions">
-        <button class="topbar-btn">
-          <span class="material-symbols-outlined">notifications</span>
-        </button>
-        <div class="topbar-avatar" id="topbar-avatar">D</div>
+        <div style="position: relative;">
+          <button class="topbar-btn" onclick="toggleNotifications()">
+            <span class="material-symbols-outlined">notifications</span>
+            <span id="notif-dot" style="position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; background: var(--danger); border-radius: 50%; display: none;"></span>
+          </button>
+          <div id="notif-dropdown" class="notif-dropdown">
+            <div class="notif-header">
+              <span>Notifications</span>
+              <button onclick="clearNotifications()" style="background: none; border: none; color: var(--primary); font-size: 0.75rem; font-weight: 700; cursor: pointer;">Clear All</button>
+            </div>
+            <div id="notif-list" class="notif-list">
+              <!-- Dynamic items -->
+            </div>
+          </div>
+        </div>
+        <div class="topbar-avatar" id="topbar-avatar" onclick="showPage('profile')">D</div>
       </div>
     </header>
 
@@ -168,20 +185,8 @@
           </div>
         </div>
         
-        <!-- TRENDING BANNER (From Image) -->
-        <div class="trending-card">
-          <div class="trending-content">
-            <span class="trending-badge">TRENDING</span>
-            <h3>Emergency Water Main Break — OMR</h3>
-            <p>Starting at 8 AM • Est. 6hrs Repair</p>
-            <button class="trending-btn" onclick="viewIssueDetail(3)">
-              View Details <span class="material-symbols-outlined">arrow_forward</span>
-            </button>
-          </div>
-          <div class="trending-icon-wrap">
-            <span class="material-symbols-outlined trending-icon">auto_awesome</span>
-          </div>
-        </div>
+        <!-- DYNAMIC HERO BANNER -->
+        <div id="hero-banner"></div>
 
         <div class="filter-bar">
           <button class="filter-chip active" onclick="filterIssues('All', this)">All Feeds</button>
@@ -197,7 +202,6 @@
       <!-- REPORT PAGE -->
       <div class="page" id="page-report">
         <div class="page-header">
-          <h2>Report Issue</h2>
           <p>Document and submit civic issues in your area.</p>
         </div>
         <div class="section-card" style="max-width: 800px;">
@@ -426,21 +430,129 @@
       <!-- PROFILE PAGE -->
       <div class="page" id="page-profile">
         <div class="page-header">
-          <h2>My Profile</h2>
           <p>Your activity and contribution status.</p>
         </div>
+        <div class="section-card flex items-center gap-3">
+          <div id="profile-avatar-large" class="user-avatar" style="width: 80px; height: 80px; font-size: 32px;">U</div>
+          <div style="flex: 1">
+            <h3 id="profile-name-display" style="font-size: 1.5rem; color: var(--text-main); margin-bottom: 4px;">User Name</h3>
+            <p id="profile-email-display" style="color: var(--text-muted);">email@example.com</p>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title"><span class="material-symbols-outlined">person_edit</span> Edit Profile Details</div>
+          <div class="executive-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); margin-top: 0;">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input type="text" id="edit-profile-name" class="form-input" placeholder="Name">
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" id="edit-profile-email" class="form-input" placeholder="Email">
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="text" id="edit-profile-phone" class="form-input" placeholder="Phone">
+            </div>
+            <div class="form-group">
+              <label>City</label>
+              <input type="text" id="edit-profile-city" class="form-input" placeholder="City">
+            </div>
+          </div>
+          <div class="form-group" style="margin-top: 16px;">
+            <label>Home Address</label>
+            <textarea id="edit-profile-address" class="form-textarea" rows="2" placeholder="Complete Address"></textarea>
+          </div>
+          <button class="btn btn-primary" style="margin-top: 16px; width: auto;" onclick="updateProfile()">Save Changes</button>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">My Reports</div>
+          <div id="my-issues-list" class="issues-grid"></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS PAGE -->
+      <div class="page" id="page-settings">
+        <div class="page-header">
+          <h2>Application Settings</h2>
+          <p>Customize your experience and manage account security.</p>
+        </div>
+        
         <div class="detail-grid">
           <div class="detail-main">
-            <div class="section-card flex items-center gap-3">
-              <div id="profile-avatar-large" class="user-avatar" style="width: 80px; height: 80px; font-size: 32px;">U</div>
-              <div>
-                <h3 id="profile-name-display" style="font-size: 1.5rem; color: white;">User Name</h3>
-                <p id="profile-email-display" style="color: var(--text-muted);">email@example.com</p>
+            <div class="section-card">
+              <div class="section-title"><span class="material-symbols-outlined">notifications_active</span> Notification Preferences</div>
+              <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-weight: 600;">Push Notifications</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Receive alerts on your device for issue updates.</div>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="push-notif-switch" onchange="toggleSetting('push', this.checked)">
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-weight: 600;">Email Digests</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Weekly summary of community progress.</div>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="email-digest-switch" onchange="toggleSetting('email', this.checked)">
+                    <span class="slider round"></span>
+                  </label>
+                </div>
               </div>
             </div>
+
             <div class="section-card">
-              <div class="section-title">My Reports</div>
-              <div id="my-issues-list"></div>
+              <div class="section-title"><span class="material-symbols-outlined">security</span> Privacy & Security</div>
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <button class="btn btn-outline" onclick="changePassword()" style="justify-content: flex-start; gap: 12px;">
+                  <span class="material-symbols-outlined">lock_reset</span> Change Account Password
+                </button>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
+                  <div>
+                    <div style="font-weight: 600;">Two-Factor Authentication (2FA)</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Add an extra layer of security to your account.</div>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="2fa-switch" onchange="toggle2FA(this.checked)">
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-side">
+            <div class="section-card">
+              <div class="section-title"><span class="material-symbols-outlined">language</span> Appearance</div>
+              <div class="form-group">
+                <label>System Language</label>
+                <select class="form-select" onchange="showToast('Language updated to ' + this.value, 'success')">
+                  <option>English (US)</option>
+                  <option>Tamil (தமிழ்)</option>
+                  <option>Hindi (हिन्दी)</option>
+                </select>
+              </div>
+              <div style="margin-top: 20px;">
+                 <label style="font-weight: 600; display: block; margin-bottom: 12px;">Theme Mode</label>
+                 <div style="display: flex; gap: 8px;">
+                    <button id="theme-light-btn" class="btn btn-primary btn-sm" style="flex: 1;" onclick="setTheme('light')">Light</button>
+                    <button id="theme-dark-btn" class="btn btn-outline btn-sm" style="flex: 1;" onclick="setTheme('dark')">Dark</button>
+                 </div>
+              </div>
+            </div>
+            
+            <div class="section-card" style="border-color: var(--danger-dim);">
+               <div style="color: var(--danger); font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                  <span class="material-symbols-outlined">warning</span> Danger Zone
+               </div>
+               <button class="btn btn-outline" onclick="deactivateAccount()" style="color: var(--danger); border-color: var(--danger); width: 100%;">Deactivate Account</button>
             </div>
           </div>
         </div>
@@ -448,6 +560,25 @@
     </main>
 
     <div id="toastContainer" class="toast-container"></div>
+    
+    <!-- CUSTOM MODAL SYSTEM -->
+    <div id="customModal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modalTitle">Modal Title</h3>
+          <button class="modal-close" onclick="closeModal()">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div id="modalBody" class="modal-body">
+          <!-- Dynamic Content -->
+        </div>
+        <div class="modal-footer" id="modalFooter">
+          <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" id="modalActionBtn">Confirm</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="script.js" defer></script>

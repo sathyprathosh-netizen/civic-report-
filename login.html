@@ -81,6 +81,25 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
+  <!-- CUSTOM MODAL SYSTEM -->
+  <div id="customModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle">Modal Title</h3>
+        <button class="modal-close" onclick="closeModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div id="modalBody" class="modal-body">
+        <!-- Dynamic Content -->
+      </div>
+      <div class="modal-footer" id="modalFooter">
+        <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" id="modalActionBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
